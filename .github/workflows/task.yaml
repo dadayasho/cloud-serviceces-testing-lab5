@@ -40,13 +40,16 @@ jobs:
             libasound2 \
             libatk-bridge2.0-0
 
-      - name: Install and run firefox
+      - name: Install firefox
         run: |
           cd /tmp
           wget -O firefox-latest.tar.xz "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US"
           sudo mkdir -p /opt/firefox
           sudo tar -xf firefox-*.tar.* -C /opt/firefox --strip-components=1
           sudo ln -sf /opt/firefox/firefox /usr/local/bin/firefox
+          
+      - name: Run firefox screensgot
+        run: |
           firefox -screenshot https://rutube.ru
           ls .
 
