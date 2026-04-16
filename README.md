@@ -1,1 +1,1 @@
-# cloud-serviceces-testing-lab5
+# Тестирование ПО - лабороторная 5

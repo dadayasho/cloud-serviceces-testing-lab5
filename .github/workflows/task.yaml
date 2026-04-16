@@ -1,0 +1,70 @@
+name: Test lab5
+
+on:
+  push: 
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "manual"
+        required: true
+        default: 'flow'
+        type: choice
+        options:
+          - flow
+
+jobs:
+  flow:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: Install system deps
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libnspr4 \
+            libnss3 \
+            libgtk-3-0 \
+            libdbus-1-3 \
+            libx11-6 \
+            libx11-xcb1 \
+            libxt6 \
+            libatspi2.0-0 \
+            libdrm2 \
+            libgudev-1.0-0 \
+            libxtst6 \
+            libxcomposite1 \
+            libasound2 \
+            libatk-bridge2.0-0
+
+      - name: Install and run firefox
+        run: |
+          cd /tmp
+          wget -O firefox-latest.tar.xz "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US"
+          sudo mkdir -p /opt/firefox
+          sudo tar -xf firefox-*.tar.* -C /opt/firefox --strip-components=1
+          sudo ln -sf /opt/firefox/firefox /usr/local/bin/firefox
+          firefox -screenshot https://rutube.ru
+          ls .
+
+      - name: Archive screenshot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot
+          path: |
+            screenshot.png
+      
+      - name: Install and run wget
+        run: |
+          wget -O index.html https://rutube.ru
+          ls .
+      
+      - name: Archive index artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: index
+          path: |
+            index.html
