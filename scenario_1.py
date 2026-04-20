@@ -23,11 +23,11 @@ driver = webdriver.Chrome(service=service, options=options)
 wait = WebDriverWait(driver, 20)
 
 try:
-    # 1. Открываем YouTube
+    # открываем YouTube
     driver.get("https://www.youtube.com")
     print("Открылся YouTube")
 
-    # 2. Загружаем куки
+    # загружаем куки
     with open("./yt_cookies.json", "r") as f:
         cookies = json.load(f)
         for cookie in cookies:
@@ -42,14 +42,14 @@ try:
                 "httpOnly": cookie.get("httpOnly", False),
             })
 
-    # 3. Обновляем и даём время загрузиться
+    # обновляем
     driver.refresh()
     time.sleep(5)
 
     print("Title:", driver.title)
     print("URL:", driver.current_url)
 
-    # 4. Ждём загрузки главной страницы
+    # ггрузим морду
     wait.until(
         EC.presence_of_element_located(
             (By.CSS_SELECTOR, "ytd-rich-grid-renderer, ytd-browse")
@@ -57,7 +57,7 @@ try:
     )
     print("Главная страница загружена")
 
-    # 5. Попытка закрыть popup уведомлений
+    # закрытие popup уведомлений
     try:
         close_button = wait.until(
             EC.element_to_be_clickable(
@@ -73,7 +73,7 @@ try:
     except:
         print("Всплывающее окно найден")
     print("Поиск ...")
-    # 6. Ищем и используем поиск
+    # ищем
     search_box = wait.until(
         EC.element_to_be_clickable(
             (By.CSS_SELECTOR, "input#search, input[name='search_query']")
@@ -86,7 +86,7 @@ try:
 
     time.sleep(3)
 
-    # 7. Нажимаем на первое видео
+    # кликаем на первый видос
     first_video = wait.until(
         EC.element_to_be_clickable(
             (By.CSS_SELECTOR, 
@@ -98,7 +98,7 @@ try:
     first_video.click()
     print("Открыто первое видео")
 
-    # 8. Ждём загрузки страницы видео + скроллим вверх
+    # ждем загрузки
     wait.until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed, #info"))
     )
@@ -109,7 +109,7 @@ try:
     print("Page title (video):", driver.title)
     print("URL (video):", driver.current_url)
 
-    # 9. НАЙДЁМ КНОПКУ ЛАЙКА (улучшенные селекторы для 2026 UI)
+    # лайкаем по объекту лайка ориентируемся
     selectors = [
         "#top-level-buttons-computed button[aria-label*='Нравится'], "
         "#top-level-buttons-computed button[aria-label*='Like']"
@@ -128,7 +128,7 @@ try:
         except Exception as e:
             print(f"'{selector}' → {str(e)[:40]}")
 
-    # Дополнительная проверка: ищем в segmented контейнере
+    # доп проверка
     if not like_button:
         try:
             print("🔍 Ищем в segmented контейнере...")
@@ -155,7 +155,7 @@ try:
             f.write(driver.page_source)
         raise Exception("Like button not found!")
 
-    # 10. Скроллим к кнопке и проверяем состояние
+    # проверка состояния
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", like_button)
     time.sleep(1)
 
@@ -165,10 +165,10 @@ try:
     like_state = like_button.get_attribute("aria-pressed")
     print(f"Прожат ли лайк '{like_state}'")
 
-    # 11. ЛОГИКА ЛАЙКА: ставим → проверяем → если снялся → ставим заново
+    # ставим -> проверяем -> если снялся -> ставим заново
     print("Ставим лайк")
 
-    # Первый клик (ставим лайк)
+    # первый клик (ставим лайк)
     driver.execute_script("arguments[0].click();", like_button)
     like_button.click()
     time.sleep(3)
@@ -176,7 +176,7 @@ try:
     final_state = like_button.get_attribute("aria-pressed")
     print(f"После 1 клика: '{final_state}' (было: '{like_state}')")
 
-    # 12. Обновляем и проверяем
+    # обновляем и проверяем
     print("Обновляем страницу")
     driver.refresh()
     time.sleep(5)
@@ -186,15 +186,15 @@ try:
 
     if final_state_after == "false":
         print("Лайк снялся -> ставим снова")
-        # Ставим лайк один раз
+        # ставим лайк один раз
         driver.execute_script("arguments[0].click();", like_button_after)
-        time.sleep(2)  # немного подождём, пока реакция примется
+        time.sleep(2)  # немного подождём пока реакция примется
 
-        # ПЕРЕЗАГРУЖАЕМ страницу
+        # ф5
         driver.refresh()
         print("Страница обновлена")
 
-        # Снова ждём кнопку
+        # снова ждём кнопку
         like_button_after = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, used_selector)))
         final_final_state = like_button_after.get_attribute("aria-pressed")
         print(f"Состояние после обновления: '{final_final_state}'")
