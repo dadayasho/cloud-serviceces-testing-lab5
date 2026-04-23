@@ -7,8 +7,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 import json
 
-
-# Путь к chromedriver
 service = Service("/usr/bin/chromedriver")
 options = Options()
 options.add_argument("--no-sandbox")
@@ -17,16 +15,16 @@ options.add_argument("--disable-notifications")
 options.add_argument("--disable-popup-blocking")
 options.add_argument("--disable-infobars")
 options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+options.page_load_strategy = 'eager'
 
 try:
     driver = webdriver.Chrome(service=service, options=options)
     wait = WebDriverWait(driver, 20)
 
-    # открываем YouTube
     driver.get("https://www.youtube.com")
     print("Открылся YouTube")
 
-    # загружаем куки
+    # куки грузим
     with open("./yt_cookies.json", "r") as f:
         cookies = json.load(f)
         for cookie in cookies:
@@ -41,41 +39,19 @@ try:
                 "httpOnly": cookie.get("httpOnly", False),
             })
 
-    # обновляем
     driver.refresh()
-    # ждём, пока главная страница загрузится
-    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "ytd-rich-grid-renderer, ytd-browse")))
-    print("Title:", driver.title)
-    print("URL:", driver.current_url)
-    print("Главная страница загружена")
+    print("Страница обновлена")
 
-    # закрытие popup уведомлений
-    try:
-        close_button = wait.until(
-            EC.element_to_be_clickable((
-                By.CSS_SELECTOR,
-                "paper-dialog button[aria-label*='Close'], "
-                "button[aria-label*='Закрыть'], "
-                "#dismiss-button, .ytp-button.ytp-popup"
-            ))
-        )
-        close_button.click()
-        print("Всплывающее окно закрыто")
-    except Exception:
-        print("Всплывающее окно не найдено или закрыто автоматически")
-
-    print("Поиск ...")
-
-    # ищем
+    print("Ищем строку поиска...")
     search_box = wait.until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "input#search, input[name='search_query']"))
     )
     search_box.clear()
     search_box.send_keys("srt-10 donuts")
     search_box.submit()
-    print("Поиск выполнен")
+    print("Поиск успешен")
 
-    # ждём, пока результаты поиска станут кликабельными
+    # результаты поиска
     wait.until(
         EC.element_to_be_clickable((
             By.CSS_SELECTOR,
@@ -85,7 +61,6 @@ try:
         ))
     )
 
-    # кликаем на первый видос
     first_video = wait.until(
         EC.element_to_be_clickable((
             By.CSS_SELECTOR,
@@ -97,126 +72,62 @@ try:
     first_video.click()
     print("Открыто первое видео")
 
-    # ждём загрузки видео‑страницы
-    wait.until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed, #info"))
-    )
+    # минимальное ожидание
+    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed")))
     driver.execute_script("window.scrollTo(0, 0);")
-    print("Page title (video):", driver.title)
-    print("URL (video):", driver.current_url)
+    print("Видео загружено:", driver.title)
 
-    # лайкаем по объекту лайка ориентируемся
-    selectors = [
-        "#top-level-buttons-computed button[aria-label*='Нравится']",
-        "#top-level-buttons-computed button[aria-label*='Like']",
-    ]
+    
+    try:
+        close_btn = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='Close'], button[aria-label*='Закрыть']")
+        close_btn.click()
+    except:
+        pass
 
-    like_button = None
-    used_selector = None
 
-    for selector in selectors:
+    LIKE_SELECTOR = "#top-level-buttons-computed button[aria-label*='Нравится']"
+    
+    def get_like_button():
         try:
-            like_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
-            used_selector = selector
-            print(f"Найдена кнопка лайка по селектору: {used_selector}")
-            print(f"aria-label: '{like_button.get_attribute('aria-label')}'")
-            break
-        except Exception as e:
-            print(f"'{selector}' → {str(e)[:40]}")
-
-    # доп проверка (segmented контейнер)
-    if not like_button:
-        try:
-            print("🔍 Ищем в segmented контейнере...")
-            segmented_hosts = driver.find_elements(By.CSS_SELECTOR,
-                "yt-segmented-like-dislike-button-view-model, "
-                "ytd-segmented-like-dislike-button-renderer, "
-                ".ytSegmentedLikeDislikeButtonViewModelHost"
-            )
-            for host in segmented_hosts:
-                try:
-                    like_button = host.find_element(By.CSS_SELECTOR,
-                        "like-button-view-model button, "
-                        ".yt-spec-button-shape-next--segmented-start button"
-                    )
-                    used_selector = "nested in segmented host"
-                    print("Найден в segmented контейнере!")
-                    break
-                except:
-                    continue
+            return driver.find_element(By.CSS_SELECTOR, LIKE_SELECTOR)
         except:
-            pass
+            return driver.find_element(By.CSS_SELECTOR, 
+                ".yt-segmented-like-dislike-button-renderer button")
 
-    if not like_button:
-        print("Кнопка лайка не найдена, сохраняем лог")
-        with open("youtube_page_debug.html", "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-        raise Exception("Like button not found!")
+    def click_like():
+        btn = get_like_button()
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+        driver.execute_script("arguments[0].click();", btn)
+        return btn.get_attribute('aria-pressed')
 
-    # проверка состояния
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", like_button)
-    ActionChains(driver).move_to_element(like_button).perform()
-
-    like_state = like_button.get_attribute("aria-pressed")
-    print(f"Прожат ли лайк '{like_state}'")
-
-    # ставим -> проверяем -> если снялся -> ставим заново
-    print("Ставим лайк")
-
-    # клик через JS
-    driver.execute_script("arguments[0].click();", like_button)
-
-    # ждём, пока состояние лайка изменится
-    def wait_for_like_change(driver, wait, used_selector, initial_state, timeout=10):
-        try:
-            wait_helper = WebDriverWait(driver, timeout)
-            wait_helper.until(
-                lambda wd: wd.find_element(By.CSS_SELECTOR, used_selector).get_attribute("aria-pressed") != initial_state
-            )
-            return True
-        except:
-            return False
-
-    # ждём смены aria-pressed
-    if not wait_for_like_change(driver, wait, used_selector, like_state):
-        print("Состояние лайка не изменилось после клика")
-    final_state = like_button.get_attribute("aria-pressed")
-    print(f"После 1 клика: '{final_state}' (было: '{like_state}')")
-
-    # обновляем и проверяем
-    print("Обновляем страницу")
-    driver.refresh()
-    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed, #info")))
-
-    like_button_after = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, used_selector)))
-    final_state_after = like_button_after.get_attribute("aria-pressed")
-    print(f"Состояние после обновления: '{final_state_after}'")
-
-    if final_state_after == "false":
-        print("Лайк снялся -> ставим снова")
-
-        driver.execute_script("arguments[0].click();", like_button_after)
-
-        # ждём, пока лайк снова станет true
-        wait_for_like_change(driver, wait, used_selector, "false")
-
-        # ф5
+    print("Проверка")
+    
+    # если не стоит -> поставить -> обновить
+    first_like = get_like_button()
+    if first_like.get_attribute('aria-pressed') == 'false':
+        print("Нету -> ставим")
+        click_like()
+        print("Поставили -> Refresh...")
         driver.refresh()
-        print("Страница обновлена")
-
-        # снова ждём кнопку
-        like_button_after = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, used_selector)))
-        final_state_after = like_button_after.get_attribute("aria-pressed")
-        print(f"Состояние после обновления: '{final_state_after}'")
-
-        if final_state_after == "true":
-            print("Лайк на месте")
-        else:
-            print("Проблема - лайк не держится")
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed")))
+        print("Refresh 1 OK")
     else:
-        print("Лайк сохранился после обновления")
+        #если стоит -> убрать -> обновить -> поставить -> обновить  
+        print("Уже liked -> убираем")
+        click_like()  # Снимаем
+        print("Сняли -> Refresh...")
+        driver.refresh()
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed")))
+        
+        print("Ставим обратно")
+        click_like()
+        print("Поставили -> Refresh...")
+        driver.refresh()
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#top-level-buttons-computed")))
+        print("✅ Финальный Refresh OK")
 
-    print("Скрипт выполнен успешно")
+    final_like = get_like_button()
+    print(f"'{final_like.get_attribute('aria-pressed')}'")
 
 except Exception as e:
     print(f"Ошибка: {e}")
@@ -225,5 +136,5 @@ except Exception as e:
 finally:
     try:
         driver.quit()
-    except Exception as e_quit:
-        print("Ошибка при закрытии браузера:", e_quit)
+    except:
+        pass
